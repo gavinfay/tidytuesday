@@ -56,9 +56,9 @@ twss_plot <- ggplot(twss_writers,
   coord_flip() +
   theme_minimal() +
   theme(text=element_text(family="Courier New", size=14),
-        plot.title = element_text(hjust = -1, size = 20,
+        plot.title = element_text(hjust = -1.95, size = 20,
                                   face = "bold"),
-        plot.subtitle = element_text(hjust = 22),
+        plot.subtitle = element_text(hjust = 1.87),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         #axis.title.x = element_blank(),
@@ -69,7 +69,7 @@ twss_plot <- ggplot(twss_writers,
               caption = "\n@gavin_fay\n#TidyTuesday 2020 wk 12, data from `schrute` pkg")
 
 
-png('twss.png',width = 10,height=6,units = 'in',res=300)
+png('twss.png',width = 8,height=4.5,units = 'in',res=300)
 twss_plot
 dev.off()
 ```
