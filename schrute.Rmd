@@ -1,0 +1,84 @@
+---
+title: "schrute"
+author: "Gavin Fay"
+date: "3/17/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#install.packages("schrute")
+library(tidyverse)
+library(schrute)
+```
+
+
+## #TidyTuesday 2020
+
+`TidyTuesday` is a weekly social data project in R.  
+<https://github.com/rfordatascience/tidytuesday/blob/master/README.md>
+
+This repository contains my work.  
+
+### week 12, 2020-03-17, the Office
+
+View data, & investigate which writers used the phrase "That's What She Said".  
+
+```{r}
+glimpse(theoffice)
+# number of episodes for each writer
+writers <- theoffice %>% 
+  group_by(season, episode) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  group_by(writer) %>% 
+  count() %>% 
+  rename(n_episodes = n)
+# number of uses of 'that's what she said'
+twss_writers <- theoffice %>% 
+  mutate(text = tolower(text)) %>% 
+  slice(str_which(text, "what she sa")) %>% 
+  group_by(writer) %>% 
+  count() %>% 
+  left_join(writers) %>% 
+  mutate(freq = n/n_episodes)
+twss_writers 
+```
+
+bar chart focusing on which writers did it the most.  
+
+```{r}
+my_subtitle <- expression(paste("which writers used `", bold("that's what she said"),"` the most?"))
+
+twss_plot <- ggplot(twss_writers, 
+                    aes(x=fct_reorder(writer,freq), y=freq)) +
+  geom_col() +
+  coord_flip() +
+  theme_minimal() +
+  theme(text=element_text(family="Courier New", size=14),
+        plot.title = element_text(hjust = -1, size = 20,
+                                  face = "bold"),
+        plot.subtitle = element_text(hjust = 22),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        #axis.title.x = element_blank(),
+        axis.title.y = element_blank()) +
+  labs(title = "the office",
+       y = "uses per episode",
+       subtitle = my_subtitle,
+              caption = "\n@gavin_fay\n#TidyTuesday 2020 wk 12, data from `schrute` pkg")
+
+
+png('twss.png',width = 10,height=6,units = 'in',res=300)
+twss_plot
+dev.off()
+```
+
+
+### things I learned and got stuck on...
+
+* first time using a little bit of stringr: `str_which()` instead of `grep()`.  
+* additional fonts with `extrafont` pkg - ended up not using as Courier was a reasonable match for the Office font (American Typewriter medium).  
+* practice with theme adjustments.  
+* not happy with my solution for getting title / subtitle aligned with left of plot margin, `hjust = ` has different effects depending on plot size.  
+
