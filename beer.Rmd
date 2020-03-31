@@ -1,0 +1,190 @@
+---
+title: "beer"
+author: "Gavin Fay"
+date: "3/31/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(skimr)
+library(broom)
+```
+
+
+## #TidyTuesday 2020
+
+`TidyTuesday` is a weekly social data project in R.  
+<https://github.com/rfordatascience/tidytuesday/blob/master/README.md>
+
+This repository contains my work.  
+
+### week 14, 2020-03-31, beer production
+
+<https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-03-31/readme.md>
+
+```{r getdata}
+
+# Get the Data
+
+brewing_materials <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-03-31/brewing_materials.csv')
+beer_taxed <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-03-31/beer_taxed.csv')
+brewer_size <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-03-31/brewer_size.csv')
+beer_states <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-03-31/beer_states.csv')
+
+# Or read in with tidytuesdayR package (https://github.com/thebioengineer/tidytuesdayR)
+# PLEASE NOTE TO USE 2020 DATA YOU NEED TO USE tidytuesdayR version ? from GitHub
+
+# Either ISO-8601 date or year/week works!
+
+# Install via devtools::install_github("thebioengineer/tidytuesdayR")
+
+#tuesdata <- tidytuesdayR::tt_load('2020-03-31')
+#tuesdata <- tidytuesdayR::tt_load(2020, week = 14)
+
+#brewing_materials <- tuesdata$brewing_materials
+```
+
+## Look at rate of increase in production by state
+```{r bystate}
+#skim(beer_states)
+#unique(beer_states$type)
+bs_use <- beer_states %>% 
+  filter(type == "Kegs and Barrels") %>% 
+  group_by(state) %>% 
+  nest() %>% 
+  #split(.$state) %>% 
+  mutate(model = map(data, ~lm(log(barrels)~year, data = .x))) %>% 
+         #summary = map(model, ~summary(,)),
+  mutate(coefs = map(model, tidy, conf.int = TRUE)) %>% 
+  unnest(coefs) %>% 
+  filter(term == "year") %>% 
+  I()
+p1 <- bs_use %>% 
+  ungroup() %>%
+  #arrange(desc(estimate)) %>% 
+  top_n(10, estimate) %>%
+  mutate(state = fct_reorder(state, estimate)) %>% 
+  ggplot() +
+  aes(x = state, y = 100*estimate) +
+  geom_point(col="#DF8D03", size =3) +
+  geom_errorbar(aes(ymin=100*conf.low, ymax=100*conf.high), width=0,
+                size = 1.2,
+                col = "#DF8D03") +
+  coord_flip() +
+  labs(y = "annual % increase",
+       x = "",
+       title = "Which states are increasing beer production the fastest?",
+       subtitle = "estimated annual rate of increase in kegs & barrels since 2008",
+       caption = "\n@gavin_fay\n#TidyTuesday 2020 wk 14, data from https://www.ttb.gov/beer/statistics") +
+  theme_minimal() +
+  theme(
+      plot.margin = margin(.75, .5, .75, .5, "cm"),
+    plot.background = element_rect(fill = "grey15"),
+    axis.text = element_text(color = "white", size = 12),
+    axis.title.y = element_blank(), #text(size = 10),
+    panel.grid = element_blank(),
+    text = element_text(family = "Rockwell", color = "white"),
+    plot.title.position = "plot") +
+  NULL
+p1
+ggsave(filename = "beer_states.png", p1, height = 4.5, width = 8, dpi=300)
+
+
+# p2 <- bs_use %>% 
+#   ggplot() +
+#   aes(x = estimate) +
+#   geom_histogram(col="white") +
+#   labs(y = "number of states", 
+#        x = "% increase per yr") +
+#   theme_minimal()
+# 
+# ggsave(filename = "beer_states2.png", p2, height = 6, dpi = 300)
+
+```
+      
+
+## Look at cumulative production over time in New England
+```{r}
+# beer color panel
+colpanel <- c("#FFF897","#FAE96F","#F6C101","#EC9D00","#DF8D03","#C96E12")
+
+# cumulative production using purrr
+cum_bs <- beer_states %>% 
+  filter(type == "Kegs and Barrels") %>% 
+  group_by(state) %>% 
+  mutate(cumsum = accumulate(barrels, `+`)) %>% 
+  I()
+```
+
+```{r}
+p1 <- cum_bs %>% 
+  filter(state %in% c("MA","NH","ME","VT","CT","RI")) %>% 
+  ggplot() +
+  aes(x = factor(year), y = barrels/1000000, group = state, fill = state) +
+  #aes(x = factor(year), y = cumsum/1000000, group = state, fill = state) +
+  geom_col(col = "white", position = "stack") +
+  scale_fill_manual(values = colpanel) +
+  theme_minimal() +
+  theme(
+      plot.margin = margin(.75, .5, .75, .5, "cm"),
+    plot.background = element_rect(fill = "grey15"),
+    axis.text = element_text(color = "white", size = 12),
+    axis.title.x = element_text(size = 10),
+    panel.grid = element_blank(),
+    text = element_text(family = "Rockwell", color = "white"),
+    plot.title.position = "plot",
+    legend.position = c(0, 0.95), #"top",
+    legend.justification='left') +
+    guides(fill = guide_legend(nrow = 1)) +
+  labs(x = "year",
+       y = "barrels (millions)",
+       fill = NULL,
+       title = "New England beer production",
+       subtitle = "kegs & barrels by state") +
+  NULL
+
+
+p2 <- cum_bs %>% 
+  filter(state %in% c("MA","NH","ME","VT","CT","RI")) %>% 
+  ggplot() +
+  aes(x = factor(year), y = cumsum/1000000, group = state, fill = state) +
+  geom_col(col = "white", position = "stack") +
+  scale_fill_manual(values = colpanel) +
+  theme_minimal() +
+  theme(
+      plot.margin = margin(.75, .5, .75, .5, "cm"),
+    plot.background = element_rect(fill = "grey15"),
+    axis.text = element_text(color = "white", size = 12),
+    axis.title.x = element_text(size = 10),
+    panel.grid = element_blank(),
+    text = element_text(family = "Rockwell", color = "white"),
+    plot.title.position = "plot",
+    legend.position = c(0, 0.95), #"top",
+    legend.justification='left') +
+    guides(fill = guide_legend(nrow = 1)) +
+  labs(x = "year",
+       y = "barrels (millions)",
+       fill = NULL,
+       title = "New England beer production",
+       subtitle = "cumulative kegs & barrels since 2008",
+       caption = "\n@gavin_fay\n#TidyTuesday 2020 wk 14, data from https://www.ttb.gov/beer/statistics") +
+  scale_y_continuous(labels=c(0, 2, 4, 6),breaks=c(0,2,4,6)) +
+  NULL
+p2
+ggsave("cumuplot.png",p2,height = 4.5, width = 8, dpi=300)
+ggsave("bothplots.png",p1/p2,height = 9, width = 8, dpi=300)
+
+```
+
+
+
+### things I learned and got stuck on...
+
+* more practice with dplyr & `purrr`.  
+* `accumulate` function from `purrr`.   
+* using a custom color palette with `scale_discrete_manual`.  
+* more practice with theme adjustments.  
+* manual axis labels (to remove the pesky '8')  
+* thanks to `@ekholm_e` for theme adjustment inspiration.  
+* thanks to last week's meetup, I am LOVING ending pipes with `I()` & plots with `NULL`. Game-changer.    
