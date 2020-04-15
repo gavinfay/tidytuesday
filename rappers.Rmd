@@ -60,7 +60,7 @@ hiphop_theme <-  theme_minimal() +
 
 # TidyTuesday16
 
-For this week's __#TIdyTuesday__ I wanted to try out scrollytelling, with `@yihui`'s `rolldown` package.  
+For this week's __#TIdyTuesday__ I wanted to try out scrollytelling, with `@xieyihui`'s `rolldown` package.  
 
 I investigated the best rap artists dataset, containing ranks from BBC Music on critics' favorite hip-hop tracks.    
 
