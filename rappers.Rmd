@@ -1,0 +1,223 @@
+---
+title: "Tidy Tuesday Week 16"
+subtitle: "rolldown with my homies: BBC scores of hip-hop tracks"
+author: "Gavin Fay"
+date: "`r Sys.Date()`"
+output: rolldown::scrollama_sidebar
+---
+
+```{css, echo=FALSE}
+.level1 {
+  min-height: 400px;
+  border: 0 px;
+  border-color: #262626;
+  margin-bottom: 4em;
+  padding: 1em 2em 2em;
+  opacity: .5;
+}
+.is-active {
+  opacity: 1;
+  background-color: #262626;
+    color: #FFFFFF;
+    # lightyellow;
+}
+body {
+  margin-bottom: 80vh;
+  background-color: #262626;
+    color: #FFFFFF;
+}
+```
+
+
+```{r read, echo = FALSE, message=FALSE, comment='hide', warning=FALSE}
+library(tidyverse)
+library(patchwork)
+library(tidytext)
+library(textdata)
+
+
+
+tuesdata <- tidytuesdayR::tt_load(2020, week = 16)
+polls <- tuesdata$polls
+#polls
+rankings <- tuesdata$rankings
+#rankings
+hiphop_theme <-  theme_minimal() +
+  theme(
+      plot.margin = margin(.75, .5, .75, .5, "cm"),
+    plot.background = element_rect(fill = "grey15"),
+    axis.text = element_text(color = "white", size = 12),
+    axis.title.x = element_text(size = 10),
+    panel.grid = element_blank(),
+    text = element_text(family = "Rockwell", color = "white"),
+    plot.title.position = "plot",
+    strip.text = element_text(colour = 'white'))
+    #legend.position = c(0, 0.95), #"top",
+    #legend.justification='left') +
+    #guides(fill = guide_legend(nrow = 1))
+
+```
+
+# TidyTuesday16
+
+For this week's __#TIdyTuesday__ I wanted to try out scrollytelling, with `@yihui`'s `rolldown` package.  
+
+I investigated the best rap artists dataset, containing ranks from BBC Music on critics' favorite hip-hop tracks.    
+
+Data & TidyTuesday:  
+<https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-04-14/readme.md>
+
+100+ critics ranked their favorite tracks, and then these ranks were aggregated to give each track an overall point score based on how many times they received rankings.  
+
+```{r, echo = FALSE}
+glm1 <- rankings %>% 
+  mutate(year2 = year - 1979) %>% 
+  glm(points ~ year2, data = ., family = poisson()) 
+coef <- coef(glm1)
+```
+
+
+## When were the best hip-hop tracks released?
+
+Summarizing these scores over time, we see an overall decline over time in the score of tracks. Fitting a Poisson GLM to the scores for ranked tracks (the scoring of ranks method won't result in Poisson but for our purposes this may be sufficient), we find the average points score for a track decreased by `r paste0(1-round(exp(coef[2]),digits=0),"%")` per year. The predicted average score for a ranked track in 1979 was `r round(exp(coef[1]),digits=0)`, and this predicted average score in 2019 was `r round(exp(coef[1]+ coef[2]*40),digits=0)`.  
+
+```{r, echo = FALSE}
+ranks <- rankings %>% 
+  group_by(year) %>% 
+  summarize(totpts = sum(points),
+            n = length(title),
+            avgpts = totpts/n)
+p1 <- ranks %>% 
+  ggplot() +
+  aes(x = year, y = avgpts) +
+  geom_line(col="#DF8D03") +
+  geom_point(col="#DF8D03", size =3) +
+  ylim(0,60) +
+  labs(y = "average annual score of tracks") +
+#  geom_smooth(data = rankings, aes(x = year, y = points)) +
+  hiphop_theme +
+    NULL
+
+p2 <- ranks %>% 
+  ggplot() +
+  aes(x = year, y = n) +
+  geom_col(fill="#DF8D03") +
+  labs(y = "# tracks") +
+  hiphop_theme
+
+p1/p2 + plot_layout(heights = c(2, 1))
+
+# 
+# annotate(geom = "segment", x = 1994, y = 8.75, xend = 1994, yend = 1, colour = "gold3", arrow = arrow(length = unit(3, "mm"))) +
+#   annotate(geom = "text", x = 1995, y = 9.5, label = "The Notorious B.I.G. [Juicy] \n& Nas [N.Y. State Of Mind]", size = 3, colour = "gold3", fontface = "bold", family = "Fredoka One") +
+#   annotate(geom = "segment", x = 1992, y = 7.5, xend = 1992, yend = 1, colour = "gold3", arrow = arrow(length = unit(2.5, "mm"))) +
+#   annotate(geom = "text", x = 1988, y = 8, label = "Dr Dre ft. Snoop Doggy Dogg [Nuthin’ But A ‘G’ Thang] \n & The Pharcyde [Passin’ Me By]", size = 3, colour = "gold3", fontface = "bold", family = "Fredoka One") +
+#   annotate(geom = "segment", x = 1989, y = 6, xend = 1989, yend = 1, colour = "gold3", arrow = arrow(length = unit(2.5, "mm"))) +
+#   annotate(geom = "text", x = 1986, y = 6.25, label = "Public Enemy [Fight The Power]", size = 3, colour = "gold3", fontface = "bold", family = "Fredoka One") +
+
+```
+
+
+
+# Which tracks were ranked the highest?
+
+## Overall
+
+The early 90s produced the best tracks. Duh.  
+
+```{r, echo=FALSE}
+ranktable <- rankings %>%
+  #group_by(year) %>% 
+  ungroup() %>% 
+  arrange(desc(points)) %>% 
+  slice(1:10) %>% 
+  select(year, artist, title, points) 
+  #arrange(desc(year))
+knitr::kable(ranktable, caption = 'Top ten highest ranking tracks')
+```
+
+
+## Best tracks by year
+
+Looking at the highest scoring tracks by year we see many years where of the songs receiving ranks, female artists had the best track of the year, despite so few tracks in those receiving rankings being by women (as analyzed in Simon Jocker's [post]("https://blog.datawrapper.de/best-hip-hop-songs-of-all-time-visualized/").  
+
+
+### for 2000-2019
+```{r, echo=FALSE}
+ranktable <- rankings %>%
+  group_by(year) %>% 
+  arrange(desc(points)) %>% 
+  slice(1) %>% 
+  select(year, artist, title, points) %>% 
+  arrange(desc(year))
+knitr::kable(filter(ranktable, year >= 2000), caption = 'What were the highest ranked songs each year?')
+```
+
+### and for 1979-1999
+
+```{r, echo= FALSE}
+knitr::kable(filter(ranktable, year < 2000), caption = 'What were the highest ranked songs each year?')
+```
+
+
+
+# More women represented over time?
+
+```{r, echo = FALSE}
+glm2 <- ranktable <- rankings %>%
+  group_by(year) %>% 
+  arrange(desc(points)) %>% 
+  slice(1) %>% 
+  mutate(best = ifelse(gender == "female", 1, 0),
+         year2 = year-1979) %>% 
+  glm(best~year2,family=binomial(),data= .) 
+#coef(glm2)
+preds <- tibble(year2=1979:2019-1979) %>% 
+  mutate(preds = predict(glm2,newdata = ., type = 'response'))
+```
+
+We see that the chance that the highest scoring track in a year was by a female artist almost doubles over the time series, from  `r paste0(round(100*preds$preds[1],digits=0),"%")` to `r paste0(round(100*preds$preds[nrow(preds)],digits=0),"%")`.  
+```{r, echo = FALSE}
+ggplot(preds) +
+  aes(x = year2+1979, y = preds) +
+  geom_line(col="#DF8D03") +
+  labs(x = "year",
+       y = "P(best song was by a woman)") +
+  ylim(0,0.2) +
+  hiphop_theme +
+  annotate(geom = "text", x = 1979, y = preds$preds[1], label = paste0(round(100*preds$preds[1],digits=0),"%"), size = 3, colour = "#FFFFFF", fontface = "bold") +
+    annotate(geom = "text", x = 2019, y = preds$preds[nrow(preds)], label = paste0(round(100*preds$preds[nrow(preds)],digits=0),"%"), size = 3, colour = "#FFFFFF", fontface = "bold")
+```
+
+
+
+# Positivity
+
+Applying sentiment analysis to the words in the titles of tracks, we see that 90s track titles contained more positive words than tracks receiving votes released in other decades.  
+Sentiments of positivity and joy were relatively more frequent in the 90s, as were words of SURPRISE!  
+```{r, echo = FALSE, message=FALSE, comment='hide', warning=FALSE}
+
+nrc <- get_sentiments("nrc")
+bing <- get_sentiments("bing")
+
+sents <- rankings %>%
+  group_by(ID) %>%
+  mutate(word = str_split(title, " ")) %>% 
+  unnest(word) %>% 
+  mutate( word = tolower(word)) %>% 
+  #inner_join(bing)
+  inner_join(nrc)
+sents %>% 
+  mutate(decade = case_when(
+    year < 1990 ~ "eighties",
+    year >= 2010 ~ "twenty tens",
+    year >= 1990 & year < 2000 ~ "nineties",
+    TRUE ~ "noughties")) %>% 
+  ggplot() +
+  aes(x = sentiment) +
+  geom_bar(fill = "#DF8D03") +
+  facet_wrap(~decade) +
+  coord_flip() +
+  hiphop_theme
+```
+

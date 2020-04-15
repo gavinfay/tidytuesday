@@ -6,11 +6,11 @@
 
 This repository contains my work.
 
-### 2020-03-17, week 12: the Office
+### 2020-04-14, week 16: rap tracks
 
-see [schrute.Rmd](schrute.Rmd)
+see [rappers.Rmd](rappers.Rmd)
 
-![](twss.png)
+![](hiphop.gif)
 
 ### 2020-03-31, week 14: beer
 
@@ -19,3 +19,9 @@ see [beer.Rmd](beer.Rmd)
 ![](cumuplot.png)
 
 ![](beer_states.png)
+
+### 2020-03-17, week 12: the Office
+
+see [schrute.Rmd](schrute.Rmd)
+
+![](twss.png)
