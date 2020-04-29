@@ -1,0 +1,246 @@
+---
+title: "broadway"
+author: "Gavin Fay"
+date: "4/28/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(skimr)
+library(broom)
+library(lubridate)
+#install.packages('fishualize')
+library(fishualize)
+library(showtext)
+library(sysfonts)
+source("https://gist.githubusercontent.com/benmarwick/2a1bb0133ff568cbe28d/raw/fb53bd97121f7f9ce947837ef1a4c65a73bffb3f/geom_flat_violin.R")
+
+```
+
+
+## #TidyTuesday 2020
+
+`TidyTuesday` is a weekly social data project in R.  
+<https://github.com/rfordatascience/tidytuesday/blob/master/README.md>
+
+This repository contains my work.  
+
+### week 18, 2020-04-28, Broadway shows
+
+<https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-04-28/readme.md>
+
+```{r getdata}
+# Get the Data
+
+tuesdata <- tidytuesdayR::tt_load(2020, week = 18)
+
+grosses_raw <- tuesdata$grosses
+synopses <- tuesdata$synopses
+```
+
+## look at multiple runs
+### clean data
+```{r}
+grosses_raw <- tuesdata$grosses
+grosses_fixed_missing <- grosses_raw %>%
+  # Turn metrics into missing values if there were no shows
+  # OR if metrics have a value of zero
+  mutate_at(vars(weekly_gross:pct_capacity),
+            ~ ifelse(performances + previews == 0 | . == 0, NA, .))
+
+grosses_clean_temp <- grosses_fixed_missing %>%
+  group_by(show) %>%
+  arrange(week_ending) %>%
+  mutate(run_number = cumsum(row_number() == 1 |
+                               week_ending - lag(week_ending) > 90)) %>%
+  group_by(show, run_number) %>%
+  mutate(week_of_run = row_number()) %>%
+  ungroup()
+
+pre_1985_starts <- readr::read_csv("https://raw.githubusercontent.com/tacookson/data/master/broadway-grosses/pre-1985-starts.csv")
+
+calculate_weeks_since_start <- function(x) {
+  as.integer(pmax(1, difftime("1985-06-09", x, units = "weeks")))
+}
+
+pre_1985_starts_calculated <- grosses_clean_temp %>%
+  group_by(show, run_number) %>%
+  filter(min(week_ending) == "1985-06-09") %>%
+  ungroup() %>%
+  select(week_ending, show) %>%
+  left_join(pre_1985_starts, by = "show") %>%
+  group_by(show) %>%
+  mutate(week_of_run_originals = calculate_weeks_since_start(start_date) + row_number()) %>%
+  ungroup() %>%
+  select(week_ending, show, week_of_run_originals)
+
+grosses_clean <- grosses_clean_temp %>%
+  left_join(pre_1985_starts_calculated, by = c("show", "week_ending")) %>%
+  mutate(week_of_run = coalesce(week_of_run_originals, week_of_run)) %>%
+  select(-week_of_run_originals)
+
+cpi <- tuesdata$cpi %>%
+  mutate(jan_2020_dollars = cpi[year_month == "2020-01-01"] / cpi)
+
+real_grosses <- grosses_clean %>%
+  mutate(year_month = floor_date(week_ending, unit = "month")) %>%
+  left_join(cpi, by = "year_month") %>%
+  mutate_at(
+    vars(
+      weekly_gross_overall,
+      weekly_gross,
+      potential_gross,
+      avg_ticket_price,
+      top_ticket_price
+    ),
+    ~ . * jan_2020_dollars
+  ) %>%
+  select(-year_month:-jan_2020_dollars)
+
+```
+
+
+<!-- ```{r} -->
+<!-- grosses_fixed_missing %>% -->
+<!--   filter(show == "Les Miserables") %>% -->
+<!--   ggplot(aes(week_ending, seats_sold)) + -->
+<!--   geom_col() + -->
+<!--   scale_x_date(date_breaks = "5 years", date_labels = "%Y") + -->
+<!--   labs(title = "Two-four-six-oh-what??", -->
+<!--        subtitle = "Seats sold by week for Les Misérables") -->
+<!-- ``` -->
+
+
+## look at multuple runs
+```{r}
+numruns <- real_grosses %>% 
+  group_by(show) %>% 
+  summarize(numruns = n_distinct(run_number))
+numruns
+```
+
+```{r}
+#real_grosses
+gross_sum <- real_grosses %>% 
+  left_join(numruns) %>% 
+  filter(numruns > 1) %>% 
+  group_by(show, run_number) %>% 
+  summarize(sum_gross = sum(weekly_gross),
+            nweeks = length(weekly_gross),
+            avg_gross = sum_gross/nweeks)
+#gross_sum
+```
+
+```{r}
+gross_sum %>%
+  ggplot() +
+  aes(x = factor(run_number), y = avg_gross) +
+  geom_boxplot()
+```
+
+# set up a theme (much pain with the Broadway font)
+add the broadway font
+```{r}
+font_add(family = "Broadway", "Broadway\ Regular/Broadway\ Regular.ttf")
+showtext_auto()
+font_add_google("Roboto", "Roboto")
+```
+create a raincloud theme
+```{r}
+library(extrafont)
+raincloud_theme <- theme_minimal() +
+  theme(
+  plot.margin = margin(0.2, 0.2, 0.2, 0.2, "cm"),  
+  axis.title.x = element_text(family = "Roboto", color = "white"),
+  axis.title.y = element_text(family = "Roboto", color = "white"),
+  panel.border = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.grid.major = element_blank(),
+  axis.line.x = element_line(colour = "grey15", size = 0.5, linetype = "solid"),
+  axis.line.y = element_line(colour = "grey15", size = 0.5, linetype = "solid"),
+  axis.text = element_text(color = "white", size = 12),
+  plot.caption = element_text(family = "Roboto", color = "white"),
+  plot.title = element_text(family = "Broadway", color = "white", size = 24), 
+  plot.subtitle = element_text(family = "Roboto", color = "white"),
+  plot.background = element_rect(fill = "grey15"))
+```
+
+
+raincloud plot of avg weekly gross by run number
+```{r}
+g <- 
+  gross_sum %>% 
+  ggplot() +
+  aes(x = factor(run_number), y = avg_gross/1000000, fill = factor(run_number)) +
+  geom_flat_violin(position = position_nudge(x = .2, y = 0), alpha = .8) +
+  geom_point(aes(y = avg_gross/1000000, color = factor(run_number)), 
+             position = position_jitter(width = .15), size = .75, alpha = 0.6) +
+  guides(fill = FALSE) +
+  guides(color = FALSE) +
+  coord_flip() + # flip or not?
+  scale_color_fish(option = "Lepomis_megalotis", discrete = TRUE, end = 0.6) +
+  scale_fill_fish(option = "Lepomis_megalotis", discrete = TRUE, end = 0.6) +
+  labs(title = "The Show Must Go On",
+       subtitle = "More runs, more money: revivals of Broadway shows make more money",
+       caption = "\n@gavin_fay\n#TidyTuesday 2020 wk 18, data courtesy of @alexcookson",
+       x = "Run Number",
+       y = "Average Weekly Gross (millions)") +
+  ggrepel::geom_label_repel(data = (arrange(gross_sum, desc(avg_gross)) %>%
+                              ungroup() %>% slice(1)),
+                            aes(x = factor(run_number),
+                                y = avg_gross/1000000,
+                                label=show),
+                            nudge_x = 1,
+                            col = "white") +
+  raincloud_theme +
+  NULL
+g
+```
+
+## make an inset plot with  a histogram of the ratios of revival grosses 
+```{r}
+init <- gross_sum %>% 
+  ungroup() %>%
+  filter(run_number == 1) %>% 
+  mutate(init = avg_gross) %>% 
+  select(show, init)
+
+bob <- gross_sum %>% 
+  ungroup() %>% 
+  filter(run_number != 1) %>% 
+  left_join(init) %>% 
+  mutate(ratio = avg_gross/init,
+         over1 = ifelse(ratio>1,1,0))
+
+col_use <- fish(n = 5, option = "Lepomis_megalotis", end = 1)[c(1,3)]
+pp <- bob %>% 
+  ggplot() +
+  aes(x = ratio) +
+  geom_histogram(col="grey15", fill = col_use[1]) +
+  geom_vline(xintercept = 1, lty=2, size = 0.75, col = col_use[2]) +
+  raincloud_theme +
+  labs(x = "revival:initial",
+       y = "") +
+  xlim(0,5) +
+  theme(axis.line.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.text.x = element_text(size = 8)) +
+  NULL
+```
+
+```{r}
+g3 <- g + annotation_custom(ggplotGrob(pp), xmin = 3.5, xmax = 6.5, 
+                       ymin = 1.4, ymax = 1.8)
+ggsave("broadway.png",g3,height = 4.5, width = 8, dpi=300)
+```
+    
+
+### things I learned and got stuck on...
+
+* My first raincloud plot!  
+* more practice with themes.  
+* adding fonts from `extrafont`.     
+* using color palette from `fishualize`.  
+* practice with an inset plot.  
+* ggrepel (thanks @mcsiple!)  
