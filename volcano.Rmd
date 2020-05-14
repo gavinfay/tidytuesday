@@ -1,0 +1,108 @@
+---
+title: "volcano"
+author: "Gavin Fay"
+date: "05/13/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(grid)
+```
+
+## #TidyTuesday 2020
+
+`TidyTuesday` is a weekly social data project in R.  
+<https://github.com/rfordatascience/tidytuesday/blob/master/README.md>
+
+This repository contains my work.  
+
+### week 20, 2020-05-12, Broadway shows
+
+<https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-05-12/readme.md>
+
+```{r getdata}
+# Get the Data
+tuesdata <- tidytuesdayR::tt_load(2020, week = 20)
+volcano <- tuesdata$volcano
+eruptions <- tuesdata$eruptions
+events <- tuesdata$events
+```
+
+```{r, eval = FALSE}
+volcano %>% 
+  filter(volcano_name == "Rainier")
+eruptions %>% 
+  filter(volcano_name == "Rainier")
+events %>% 
+  filter(volcano_name == "Rainier")
+```
+
+
+```{r}
+rainier <- eruptions %>% 
+  filter(volcano_name == "Rainier") %>% 
+  I()
+rainier
+
+img <- png::readPNG("img/rainier.png")
+g <- rasterGrob(img, width=unit(1,"npc"), height=unit(1,"npc"))
+```
+
+# plot it!
+```{r}
+p1 <- rainier %>% 
+  ggplot() +
+  aes(x = start_year, y = vei) + #, col = eruption_category) +
+  annotation_custom(g, -Inf, Inf, -Inf, Inf) +
+  geom_point(col = "white", fill = "white") +
+  geom_segment(aes(x = start_year, xend = start_year, y=0, yend=vei),
+               col = "white") +
+  ylim(-80,12) +
+  xlim(-8100,1950) +
+  theme_void() +
+  geom_hline(yintercept = 0, col = "white") +
+  geom_segment(data = slice(rainier,1:5),
+               aes(x = c(-7500,-5000,-2500,0,1894),
+                   xend = c(-7500,-5000,-2500,0,1894),
+                   y = 0,
+                   yend = -1),
+               col = "white") +
+  geom_text(data = slice(rainier,1:5),
+            aes(x = c(-7500,-5000,-2500,0,1894),
+                label = c(-7500,-5000,-2500,0,1894),
+                y = rep(-2.5,5)),
+            col = "white",
+            size = 3) +
+  geom_text(aes(x = -8100, y = 12, label = "Mt. Rainier eruptions over time"),
+            col = "white", size = 5, hjust=0, fontface = "bold")+
+  annotate("text", x = c(-8100), y = c(9), hjust = 0, 
+           label = c("lollipop height shows volcanic eruption intensity"),
+           fontface = "italic", color="white") + 
+  annotate("text", x = c(1900), y = c(-80), hjust=0.7,vjust=1.8,
+           label = c("@gavin_fay"),
+           color="white",
+           size = 4) + 
+  #  labs(title= "Mt. Rainier eruptions over time") + #,
+ #      subtitle = "height shows relative volcanic eruption intensity",
+  #labs(caption = "@gavin_fay") +
+  #\n#TidyTuesday 2020 wk 20, data from volcano.si.edu") +
+#  theme(plot.title = element_text(vjust = -5, color = "white", face = "bold",
+#                                  size = 12)) +
+#        plot.subtitle = element_text(vjust = - 15, color = "white", 
+#                                  size = 10, face = "italic"),
+   #    theme(plot.caption = element_text(vjust = 15, color = "white"),
+    #    plot.margin = margin(0,0,0,0)) +
+  NULL
+
+ggsave(p1,filename = "rainier.png", width = 5.652997, height = 7)  
+```
+
+
+
+### things I learned and got stuck on...
+
+* My first lollipop!  
+* Images in plot  
+* Lots of playing (& grumbling) with annotations
+* Brute force text because lots of problems with margins & titles...

@@ -6,6 +6,13 @@
 
 This repository contains my work.
 
+### 2020-04-28, week 20: volcanoes
+
+see [volcano.Rmd](volcano.Rmd) (combined \#TidyTuesday with Mother’s
+Day)
+
+![](rainier.png)
+
 ### 2020-04-28, week 18: Broadway shows
 
 see [broadway.Rmd](broadway.Rmd)

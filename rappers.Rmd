@@ -15,6 +15,9 @@ output: rolldown::scrollama_sidebar
   padding: 1em 2em 2em;
   opacity: .5;
 }
+.sidebar img, .sidebar td, .sidebar .caption {
+  display: none;
+}
 .is-active {
   opacity: 1;
   background-color: #262626;
