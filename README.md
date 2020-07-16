@@ -6,6 +6,12 @@
 
 This repository contains my work.
 
+### 2020-07-14, week 29: Astronauts
+
+see [astronauts.Rmd](astronauts.Rmd)
+
+![](astronauts.png)
+
 ### 2020-04-28, week 20: volcanoes
 
 see [volcano.Rmd](volcano.Rmd) (combined \#TidyTuesday with Mother’s
